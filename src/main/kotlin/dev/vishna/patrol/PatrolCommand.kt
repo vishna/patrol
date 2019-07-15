@@ -1,0 +1,144 @@
+package dev.vishna.patrol
+
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.option
+import dev.vishna.watchservice.KWatchChannel
+import dev.vishna.watchservice.KWatchEvent
+import dev.vishna.watchservice.asWatchChannel
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.consumeEach
+import java.io.File
+import kotlin.coroutines.CoroutineContext
+import kotlin.system.exitProcess
+
+/**
+ * Does all the heavy lifting of parsing command line arguments, optional bootstrapping, parsing
+ * of the input patrol yaml and finally setting up respective file watchers
+ */
+class PatrolCommand(private val patrol: Patrol) :
+    CliktCommand(
+        name = patrol.name,
+        help = patrol.help
+    ), CoroutineScope {
+
+    private val coroutineExceptionHandler = CoroutineExceptionHandler { _, error ->
+        Log.bomb..error
+    }
+
+    private val job = SupervisorJob()
+
+    override val coroutineContext: CoroutineContext
+        get() = job + coroutineExceptionHandler
+
+    private val runOnce by option(help = "Runs ${patrol.name} only once, doesn't watch file system, useful for CI/CD.").flag()
+    private val dryRun by option(help = "Runs ${patrol.name} in a dry mode").flag()
+
+    override fun run() {
+        runBlocking(coroutineContext) {
+            runInternal(this@PatrolCommand)
+        }
+        job.cancel()
+    }
+
+    private suspend fun runInternal(args: PatrolCommand) = coroutineScope {
+
+        val patrolFile = File(pwd, patrol.patrolFileName)
+
+        if (!patrolFile.exists()) {
+            if (patrol.bootstrap?.invoke(patrolFile) != true) {
+                Log.bomb.."No file named ${patrolFile.name} found in the working directory"
+                exitProcess(1)
+            }
+        }
+
+        var lastJob: Job? = null
+        val ongoingPatrols = ArrayList<KWatchChannel>()
+
+        val patrolChannel = patrolFile.asWatchChannel(scope = this)
+
+        patrolChannel.consumeEach { event ->
+
+            if (ongoingPatrols.isNotEmpty()) {
+                ongoingPatrols.forEach { it.close() }
+                ongoingPatrols.clear()
+            }
+            lastJob?.cancel()
+
+            lastJob = this@PatrolCommand.launch {
+                dispatchPatrols(patrolFile, ongoingPatrols, event.kind)
+                if (args.runOnce) {
+                    Log.exit.."KTHXBAI"
+                    patrolChannel.close()
+                }
+            }
+        }
+    }
+
+    /**
+     * Begins all the monitoring described in the patrol file
+     */
+    private suspend fun dispatchPatrols(
+        file: File,
+        _channels: ArrayList<KWatchChannel>,
+        kind: KWatchEvent.Kind
+    ) {
+
+        val channels = file
+            .readText()
+            .asYamlArray()
+            .mapNotNull {
+                safe {
+                    WatchPoint(it as Map<String, Any>)
+                }
+            }
+            .mapNotNull { watchPoint ->
+                val watchPointFile = watchPoint.source.asFile()
+                if (watchPointFile.exists()) {
+                    watchPointFile.asWatchChannel(tag = watchPoint, scope = this)
+                } else {
+                    if (watchPoint.source.isBlank()) {
+                        Log.bomb.."No file specified for ${watchPoint.name}"
+                    } else {
+                        Log.bomb.."File ${watchPoint.source} doesn't exist for ${watchPoint.name}"
+                    }
+
+                    null
+                }
+            }
+        _channels += channels
+
+        if (kind == KWatchEvent.Kind.Initialized) {
+            Log.conf.."${file.name} loaded"
+        } else {
+            Log.conf.."${file.name} changed"
+        }
+
+        channels.forEach { channel ->
+            launch {
+                channel.consumeEach { event ->
+                    val watchPoint = event.tag as? WatchPoint ?: return@consumeEach
+
+                    // omit directory events, react to initial events
+                    val skipExecution = when (event.kind) {
+                        KWatchEvent.Kind.Deleted, KWatchEvent.Kind.Created, KWatchEvent.Kind.Initialized -> false
+                        KWatchEvent.Kind.Modified -> event.file.isDirectory
+                    }
+
+                    if (skipExecution) return@consumeEach
+
+                    Log.edit..event.file.path
+
+                    safe {
+                        patrol.onInspection(watchPoint, dryRun)
+                    }
+
+                    if (runOnce) {
+                        channel.close()
+                    }
+                }
+            }
+        }
+    }
+}
+
