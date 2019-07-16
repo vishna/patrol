@@ -20,6 +20,7 @@ dependencies {
     compile("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.0.1")
     compile("org.yaml:snakeyaml:1.8")
     compile("com.github.vishna:watchservice-ktx:master-SNAPSHOT")
+    compile("com.github.vishna:emojilog:master-SNAPSHOT")
     compile("com.github.ajalt:clikt:2.1.0")
 
     testCompile("junit", "junit", "4.12")

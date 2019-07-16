@@ -40,11 +40,17 @@ data class Patrol(
      * Name of the patrol file that will be used to instigate all the WatchPoints. Defaults to
      * name + .yaml extension
      */
-    val patrolFileName: String
+    val patrolFileName: String,
+
+    /**
+     * Whether or not we should run in debug mode
+     */
+    val debug: Boolean
 ) {
     @PatrolDsl
     class Builder {
         private var bootstrap: BootstrapPatrol? = null
+        var debug: Boolean = false
         private lateinit var onInspection_: PatrolInspection
         private lateinit var name_ : String
         private lateinit var help_ : String
@@ -83,7 +89,8 @@ data class Patrol(
                 help = help_,
                 onInspection = onInspection_,
                 patrolFileName = patrolFileName_,
-                bootstrap = bootstrap
+                bootstrap = bootstrap,
+                debug = debug
             )
         }
     }

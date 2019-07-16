@@ -3,6 +3,7 @@ package dev.vishna.patrol
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import dev.vishna.emojilog.*
 import dev.vishna.watchservice.KWatchChannel
 import dev.vishna.watchservice.KWatchEvent
 import dev.vishna.watchservice.asWatchChannel
@@ -22,8 +23,10 @@ class PatrolCommand(private val patrol: Patrol) :
         help = patrol.help
     ), CoroutineScope {
 
-    private val coroutineExceptionHandler = CoroutineExceptionHandler { _, error ->
-        Log.bomb..error
+    val log by lazy { defaultLogger(printStackTrace = patrol.debug || debug) }
+
+    private val coroutineExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        log.error..throwable
     }
 
     private val job = SupervisorJob()
@@ -33,6 +36,7 @@ class PatrolCommand(private val patrol: Patrol) :
 
     private val runOnce by option(help = "Runs ${patrol.name} only once, doesn't watch file system, useful for CI/CD.").flag()
     private val dryRun by option(help = "Runs ${patrol.name} in a dry mode").flag()
+    private val debug by option(help = "Runs ${patrol.name} in a debug mode").flag()
 
     override fun run() {
         runBlocking(coroutineContext) {
@@ -47,7 +51,7 @@ class PatrolCommand(private val patrol: Patrol) :
 
         if (!patrolFile.exists()) {
             if (patrol.bootstrap?.invoke(patrolFile) != true) {
-                Log.bomb.."No file named ${patrolFile.name} found in the working directory"
+                log.error.."No file named ${patrolFile.name} found in the working directory"
                 exitProcess(1)
             }
         }
@@ -68,7 +72,7 @@ class PatrolCommand(private val patrol: Patrol) :
             lastJob = this@PatrolCommand.launch {
                 dispatchPatrols(patrolFile, ongoingPatrols, event.kind)
                 if (args.runOnce) {
-                    Log.exit.."KTHXBAI"
+                    log.exit.."KTHXBAI"
                     patrolChannel.close()
                 }
             }
@@ -98,9 +102,9 @@ class PatrolCommand(private val patrol: Patrol) :
                     watchPointFile.asWatchChannel(tag = watchPoint, scope = this)
                 } else {
                     if (watchPoint.source.isBlank()) {
-                        Log.bomb.."No file specified for ${watchPoint.name}"
+                        log.error.."No file specified for ${watchPoint.name}"
                     } else {
-                        Log.bomb.."File ${watchPoint.source} doesn't exist for ${watchPoint.name}"
+                        log.error.."File ${watchPoint.source} doesn't exist for ${watchPoint.name}"
                     }
 
                     null
@@ -109,9 +113,9 @@ class PatrolCommand(private val patrol: Patrol) :
         _channels += channels
 
         if (kind == KWatchEvent.Kind.Initialized) {
-            Log.conf.."${file.name} loaded"
+            log.conf.."${file.name} loaded"
         } else {
-            Log.conf.."${file.name} changed"
+            log.conf.."${file.name} changed"
         }
 
         channels.forEach { channel ->
@@ -127,9 +131,9 @@ class PatrolCommand(private val patrol: Patrol) :
 
                     if (skipExecution) return@consumeEach
 
-                    Log.edit..event.file.path
+                    log.edit..event.file.path
 
-                    safe {
+                    safe(level = log.error) {
                         patrol.onInspection(watchPoint, dryRun)
                     }
 
