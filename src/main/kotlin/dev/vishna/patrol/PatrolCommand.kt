@@ -92,7 +92,7 @@ class PatrolCommand(private val patrol: Patrol) :
             .readText()
             .asYamlArray()
             .mapNotNull {
-                safe {
+                safe(level = log.error) {
                     WatchPoint(it as Map<String, Any>)
                 }
             }
