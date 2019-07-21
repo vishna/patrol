@@ -15,11 +15,6 @@ class WatchPoint(map : Map<String, Any>) : Map<String, Any> by map {
     val source : FilePath = map["source"] as String? ?: throw IllegalStateException("source not defined in $map")
 
     /**
-     * Path or file where the associated patrol report should be saved to
-     */
-    val target : FilePath = map["target"] as String? ?: throw IllegalStateException("target not defined in $map")
-
-    /**
      * Human digestible description of the watch point
      */
     val name : String = map["name"] as String? ?: throw IllegalStateException("name not defined in $map")
