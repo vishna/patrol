@@ -77,10 +77,12 @@ class PatrolCommand(private val patrol: Patrol) :
                 } else { null }
 
                 dispatchPatrols(patrolFile, ongoingPatrols, event.kind, _runnedOnce)
+
                 if (args.runOnce) {
-                    _runnedOnce?.values?.forEach {
-                        if (debug) log.alert.."awaiting channel to close"
-                        it.await()
+                    if (debug) log.alert.."awaiting ${_runnedOnce?.size} channel(s) to close"
+                    _runnedOnce?.values?.forEachIndexed { index, complete ->
+                        val completed = complete.await()
+                        if (debug) log.alert.."channel $index closed $completed"
                     } // waiting for each channel to complete at least once
                     patrolChannel.close()
                 }
