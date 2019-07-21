@@ -40,9 +40,9 @@ dependencies {
 
 ```
 ---
-- name: MyWatcher
-  source: /path/to/watch
-  target: /path/to/print/output/to
+- name: MyWatcher # mandatory
+  source: /path/to/watch # mandatory
+  target: /path/to/print/output/to # optional, made available though a map
 ```
 
 ### Patrol DSL
@@ -61,8 +61,6 @@ fun main(args: CommandArgs) = args.patrol {
     onInspection { watchPoint, dryRun ->
 
         watchPoint.source // what you are observing
-
-        watchPoint.target // suggested location for output
 
         if (!dryRun) {
             Log.save..watchPoint.name // pretty logs
