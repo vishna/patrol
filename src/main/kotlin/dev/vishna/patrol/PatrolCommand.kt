@@ -73,7 +73,7 @@ class PatrolCommand(private val patrol: Patrol) :
             lastJob = this@PatrolCommand.launch {
 
                 val _runnedOnce = if (args.runOnce) {
-                    ongoingPatrols.associateBy({ it }, { CompletableDeferred<Boolean>()})
+                    HashMap<KWatchChannel, CompletableDeferred<Boolean>>()
                 } else { null }
 
                 dispatchPatrols(patrolFile, ongoingPatrols, event.kind, _runnedOnce)
@@ -101,7 +101,7 @@ class PatrolCommand(private val patrol: Patrol) :
         file: File,
         _channels: ArrayList<KWatchChannel>,
         kind: KWatchEvent.Kind,
-        _runnedOnce: Map<KWatchChannel, CompletableDeferred<Boolean>>?
+        _runnedOnce: HashMap<KWatchChannel, CompletableDeferred<Boolean>>?
     ) {
 
         val channels = file
@@ -127,6 +127,9 @@ class PatrolCommand(private val patrol: Patrol) :
                 }
             }
         _channels += channels
+        _runnedOnce?.apply {
+            channels.forEach { this[it] = CompletableDeferred() }
+        }
 
         if (kind == KWatchEvent.Kind.Initialized) {
             log.conf.."${file.name} loaded"
