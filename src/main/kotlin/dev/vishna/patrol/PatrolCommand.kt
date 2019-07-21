@@ -71,8 +71,14 @@ class PatrolCommand(private val patrol: Patrol) :
             lastJob?.cancel()
 
             lastJob = this@PatrolCommand.launch {
-                dispatchPatrols(patrolFile, ongoingPatrols, event.kind)
+
+                val _runnedOnce = if (args.runOnce) {
+                    ongoingPatrols.associateBy({ it }, { CompletableDeferred<Boolean>()})
+                } else { null }
+
+                dispatchPatrols(patrolFile, ongoingPatrols, event.kind, _runnedOnce)
                 if (args.runOnce) {
+                    _runnedOnce?.values?.forEach { it.await() } // waiting for each channel to complete at least once
                     patrolChannel.close()
                 }
             }
@@ -80,7 +86,6 @@ class PatrolCommand(private val patrol: Patrol) :
 
         log.wave.."KTHXBAI"
         System.exit(0)
-        log.conf.."SHUTTING DOWN"
         null
     }
 
@@ -90,7 +95,8 @@ class PatrolCommand(private val patrol: Patrol) :
     private suspend fun dispatchPatrols(
         file: File,
         _channels: ArrayList<KWatchChannel>,
-        kind: KWatchEvent.Kind
+        kind: KWatchEvent.Kind,
+        _runnedOnce: Map<KWatchChannel, CompletableDeferred<Boolean>>?
     ) {
 
         val channels = file
@@ -143,6 +149,7 @@ class PatrolCommand(private val patrol: Patrol) :
                     }
 
                     if (runOnce) {
+                        _runnedOnce?.get(channel)?.complete(true)
                         channel.close()
                     }
                 }
