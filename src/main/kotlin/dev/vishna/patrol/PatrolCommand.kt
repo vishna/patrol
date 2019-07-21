@@ -79,7 +79,8 @@ class PatrolCommand(private val patrol: Patrol) :
         }
 
         log.wave.."KTHXBAI"
-        exitProcess(0)
+        System.exit(0)
+        log.conf.."SHUTTING DOWN"
         null
     }
 
