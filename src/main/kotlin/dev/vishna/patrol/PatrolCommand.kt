@@ -73,11 +73,14 @@ class PatrolCommand(private val patrol: Patrol) :
             lastJob = this@PatrolCommand.launch {
                 dispatchPatrols(patrolFile, ongoingPatrols, event.kind)
                 if (args.runOnce) {
-                    log.wave.."KTHXBAI"
                     patrolChannel.close()
                 }
             }
         }
+
+        log.wave.."KTHXBAI"
+        exitProcess(0)
+        null
     }
 
     /**
