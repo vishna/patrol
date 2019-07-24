@@ -153,7 +153,7 @@ class PatrolCommand(private val patrol: Patrol) :
                     log.edit..event.file.path
 
                     log.boom.safely {
-                        patrol.onInspection(watchPoint, dryRun)
+                        patrol.onInspection(this@PatrolCommand, watchPoint, dryRun)
                     }
 
                     if (runOnce) {
