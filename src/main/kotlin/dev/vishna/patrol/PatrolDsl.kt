@@ -5,7 +5,7 @@ import java.lang.IllegalArgumentException
 
 typealias CommandArgs = Array<String>
 
-typealias PatrolInspection = ((patrol: PatrolCommand, watchPoint: WatchPoint, dryRun: Boolean) -> Unit)
+typealias PatrolInspection = ((patrol: PatrolCommand, watchPoint: WatchPoint, dryRun: Boolean, runOnce: Boolean) -> Unit)
 
 typealias BootstrapPatrol = ((patrolFile: File) -> Boolean)
 
