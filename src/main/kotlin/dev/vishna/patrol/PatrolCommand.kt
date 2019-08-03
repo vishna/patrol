@@ -115,7 +115,11 @@ class PatrolCommand(private val patrol: Patrol) :
             .mapNotNull { watchPoint ->
                 val watchPointFile = watchPoint.source.asFile()
                 if (watchPointFile.exists()) {
-                    watchPointFile.asWatchChannel(tag = watchPoint, scope = this)
+                    val watchChannel = log.boom.safely { watchPointFile.asWatchChannel(tag = watchPoint, scope = this) }
+                    if (watchChannel == null) {
+                        log.boom.."Failed creating watch channel for ${watchPointFile.path}"
+                    }
+                    watchChannel
                 } else {
                     if (watchPoint.source.isBlank()) {
                         log.boom.."No file specified for ${watchPoint.name}"
