@@ -58,12 +58,19 @@ fun main(args: CommandArgs) = args.patrol {
         "The dopest code generator."
     }
 
-    onInspection { watchPoint, dryRun ->
+    onInspection { scope, watchPoint, dryRun, runOnce ->
+
+    	val job = scope.launch { /* do some code gen */ } // app's default coroutine scope
 
         watchPoint.source // what you are observing
 
         if (!dryRun) {
             Log.save..watchPoint.name // pretty logs
+        }
+
+        // if you use coroutines like in this example, make sure they run at least once
+        if (runOnce) {
+        	job.join()
         }
     }
 
@@ -74,3 +81,8 @@ fun main(args: CommandArgs) = args.patrol {
     }
 }
 ```
+
+## Example libraries using patrol
+
+- [voyager-codegen](https://github.com/vishna/voyager-codegen) - Dart code generator for Voyager configuration YAML
+- [mjolnir-codegen](https://github.com/vishna/mjolnir-codegen) - Kotlin based template code generator for "data" classes to possibly multiple languages
