@@ -12,10 +12,16 @@ val pwd: FilePath by lazy { System.getProperty("user.dir") }
 typealias FilePath = String
 fun FilePath.asFile() : File {
     val file = File(this)
-    return if (file.exists()) {
+    val file2 = if (file.exists()) {
         file
     } else {
         File(pwd, this)
+    }
+
+    return if (file2.parentFile == null) {
+        File(file2.absolutePath)
+    } else {
+        file2
     }
 }
 
