@@ -35,10 +35,10 @@ class PatrolCommand(private val patrol: Patrol) :
     override val coroutineContext: CoroutineContext
         get() = job + coroutineExceptionHandler
 
-    private val runOnce by option(help = "Runs ${patrol.name} only once, doesn't watch file system, useful for CI/CD.").flag()
-    private val dryRun by option(help = "Runs ${patrol.name} in a dry mode").flag()
-    private val debug by option(help = "Runs ${patrol.name} in a debug mode").flag()
-    private val setExitIfChanged by option(help = "Runs ${patrol.name}, if there's a change to generated files, returns exit status 1").flag()
+    val runOnce by option(help = "Runs ${patrol.name} only once, doesn't watch file system, useful for CI/CD.").flag()
+    val dryRun by option(help = "Runs ${patrol.name} in a dry mode").flag()
+    val debug by option(help = "Runs ${patrol.name} in a debug mode").flag()
+    val setExitIfChanged by option(help = "Runs ${patrol.name}, if there's a change to generated files, returns exit status 1").flag()
 
     override fun run() {
         runBlocking(coroutineContext) {
