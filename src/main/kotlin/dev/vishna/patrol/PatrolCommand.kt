@@ -38,6 +38,7 @@ class PatrolCommand(private val patrol: Patrol) :
     private val runOnce by option(help = "Runs ${patrol.name} only once, doesn't watch file system, useful for CI/CD.").flag()
     private val dryRun by option(help = "Runs ${patrol.name} in a dry mode").flag()
     private val debug by option(help = "Runs ${patrol.name} in a debug mode").flag()
+    private val setExitIfChanged by option(help = "Runs ${patrol.name}, if there's a change to generated files, returns exit status 1").flag()
 
     override fun run() {
         runBlocking(coroutineContext) {
@@ -112,23 +113,28 @@ class PatrolCommand(private val patrol: Patrol) :
                     WatchPoint(it as Map<String, Any>)
                 }
             }
-            .mapNotNull { watchPoint ->
-                val watchPointFile = watchPoint.source.asFile()
-                if (watchPointFile.exists()) {
-                    val watchChannel = log.boom.safely { watchPointFile.asWatchChannel(tag = watchPoint, scope = this) }
-                    if (watchChannel == null) {
-                        log.boom.."Failed creating watch channel for ${watchPointFile.path}"
-                    }
-                    watchChannel
-                } else {
-                    if (watchPoint.source.isBlank()) {
-                        log.boom.."No file specified for ${watchPoint.name}"
+            .flatMap { watchPoint ->
+                // any key starting with source prefix should become a watch point
+                val sources = watchPoint.keys.filter { it.startsWith("source") }
+                val sourceChannels = mutableListOf<KWatchChannel>()
+                sources.forEach { sourceKey ->
+                    val watchPointFile = (watchPoint[sourceKey] as? String)?.asFile()
+                    if (watchPointFile?.exists() == true) {
+                        val watchChannel = log.boom.safely { watchPointFile.asWatchChannel(tag = watchPoint, scope = this) }
+                        if (watchChannel == null) {
+                            log.boom.."Failed creating watch channel for ${watchPointFile.path}"
+                        } else {
+                            sourceChannels += watchChannel
+                        }
                     } else {
-                        log.boom.."File ${watchPoint.source} doesn't exist for ${watchPoint.name}"
+                        log.boom.."$sourceKey: ${watchPoint[sourceKey]} doesn't exist for ${watchPoint.name}"
                     }
-
-                    null
                 }
+
+                if (watchPoint.source.isBlank()) {
+                    log.boom.."No file specified for ${watchPoint.name}"
+                }
+                sourceChannels
             }
         _channels += channels
         _runnedOnce?.apply {
